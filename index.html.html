@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lista 6 · Teoria das Filas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: cabeçalho + trilho de abas (calculadora, conceitos, exercícios 4–11); em cada exercício: dados | respostas, depois passo a passo e gráfico.
+   Mesma família visual da Lista 5: azul = dados que você digita, laranja = resultados e clientes na fila. */
+:root {
+  --bg: #EBEFF2; --surface: #FFFFFF; --sunken: #F4F6F8; --ink: #14202B; --muted: #5A6875; --line: #C9D2DA; --line-soft: #E1E6EB;
+  --data: #24658F; --data-soft: #DCEAF3; --flow: #D9581C; --flow-soft: #FBE4D6; --good: #23794C; --good-soft: #DDF0E5; --bad: #B4322A; --bad-soft: #F7DEDB;
+  --f-display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif; --f-body: "Barlow", "Segoe UI", Arial, sans-serif; --f-mono: "JetBrains Mono", Consolas, monospace; --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E151C; --surface: #16202A; --sunken: #111A22; --ink: #E4EAF0; --muted: #94A3B1; --line: #2C3B48; --line-soft: #22303C;
+  --data: #72B5DE; --data-soft: #183447; --flow: #FF8B4E; --flow-soft: #3C2215; --good: #5CCB8E; --good-soft: #15342A; --bad: #F2847A; --bad-soft: #3E1D1B; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0E151C; --surface: #16202A; --sunken: #111A22; --ink: #E4EAF0; --muted: #94A3B1; --line: #2C3B48; --line-soft: #22303C;
+  --data: #72B5DE; --data-soft: #183447; --flow: #FF8B4E; --flow-soft: #3C2215; --good: #5CCB8E; --good-soft: #15342A; --bad: #F2847A; --bad-soft: #3E1D1B; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px }
+header.top { padding-block: 26px 14px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px }
+.brand-k { font-family: var(--f-display); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--muted) }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 4.6vw, 46px); line-height: 1; margin: 4px 0 0; text-wrap: balance }
+h1 .q { color: var(--flow); letter-spacing: .08em }
+.top-note { color: var(--muted); font-size: 14px; max-width: 48ch; margin: 0 }
+nav#tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding-block: 10px; background: var(--bg); border-bottom: 1px solid var(--line) }
+.tab { flex: none; display: flex; flex-direction: column; align-items: flex-start; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px 7px; cursor: pointer; font: inherit; min-width: 66px }
+.tab:hover { border-color: var(--data) } .tab.on { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.tab-k { font-family: var(--f-display); font-weight: 700; font-size: 20px; line-height: 1.05 } .tab-l { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .75; white-space: nowrap }
+:focus-visible { outline: 2px solid var(--flow); outline-offset: 2px }
+main { padding-top: 22px; display: grid; gap: 16px }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: clamp(24px, 3.2vw, 32px); line-height: 1.1; margin: 0 0 6px; text-wrap: balance }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: 19px; letter-spacing: .02em; margin: 0 }
+h4 { font-family: var(--f-display); font-weight: 600; font-size: 16px; margin: 14px 14px 6px }
+.lead { color: var(--muted); max-width: 70ch; margin: 0 }
+.eyebrow { display: flex; gap: 10px; align-items: center; font-family: var(--f-display); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 14px; color: var(--muted); margin-bottom: 6px }
+.chip { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--flow); color: var(--flow) }
+.chip.muted { border-color: var(--line); color: var(--muted); border-style: dashed }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; display: flex; flex-direction: column }
+.panel-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--line-soft) }
+.hint { font-size: 12.5px; color: var(--muted) }
+.ghost { font: inherit; font-size: 13px; font-weight: 500; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; cursor: pointer }
+.ghost:hover { border-color: var(--ink) }
+.fields { display: grid; gap: 8px; padding: 12px 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) }
+.fld { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; padding: 4px 0; border-bottom: 1px dashed var(--line-soft) }
+.fld-l { color: var(--ink) } .fld-r { display: flex; align-items: center; gap: 6px; flex: none } .fld-u { font-size: 12px; color: var(--muted); min-width: 52px }
+.num-in { width: 92px; font: inherit; font-family: var(--f-mono); font-size: 14px; text-align: right; color: var(--data); background: var(--data-soft); border: 1.5px solid transparent; border-radius: 6px; padding: 3px 6px }
+.num-in.sm { width: 76px } .num-in:hover { border-color: var(--data) } .num-in:focus { outline: none; border-color: var(--data); background: var(--surface) }
+.cond { margin: 4px 14px 14px; padding: 8px 12px; border-radius: 8px; font-size: 14px }
+.cond.good { background: var(--good-soft); color: var(--good) } .cond.bad { background: var(--bad-soft); color: var(--bad) }
+.calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px }
+.sim { width: 100%; height: 190px; display: block; background: var(--sunken); border-bottom: 1px solid var(--line-soft) }
+.sim-h { display: flex; gap: 12px; align-items: center; flex-wrap: wrap }
+.sim-opts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 10px 14px }
+.sim-opts:empty { display: none }
+.opt { font: inherit; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 4px 12px; cursor: pointer }
+.opt.on { background: var(--data); border-color: var(--data); color: var(--surface) } .opt:not(.on):hover { border-color: var(--data) }
+.sim-cap { font-size: 12.5px; color: var(--muted); margin-left: 4px }
+.speed { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden }
+.spd { font: inherit; font-size: 12.5px; font-family: var(--f-mono); border: 0; background: var(--surface); color: var(--muted); padding: 4px 9px; cursor: pointer }
+.spd.on { background: var(--ink); color: var(--bg) }
+.sim-stats .warn { color: var(--bad); font-weight: 600 }
+.sim-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; font-size: 13px; color: var(--muted) } .sim-stats b { color: var(--ink); font-family: var(--f-mono); font-weight: 600 }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px }
+.kpi.big { border-top: 4px solid var(--flow) }
+.kpi-l { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted) }
+.kpi-v { font-family: var(--f-display); font-weight: 700; font-size: 32px; line-height: 1.1; color: var(--flow); font-variant-numeric: tabular-nums }
+.kpi-s { font-size: 12.5px; color: var(--muted); font-family: var(--f-mono) }
+.two-col, .ex-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px }
+.chart { position: relative; padding: 10px 12px 12px }
+svg.svgc { width: 100%; height: auto; display: block; max-width: min(100%, 760px) }
+.grid { stroke: var(--line-soft); stroke-width: 1 } .ax { fill: var(--muted); font-size: 11.5px; font-family: var(--f-mono) }
+.bar { fill: var(--data); opacity: .55 } .bar.hi { fill: var(--flow); opacity: 1 } .bar.mk { stroke: var(--ink); stroke-width: 2.5; opacity: 1 } .bar:hover { opacity: .9 }
+.curve { fill: none; stroke: var(--data); stroke-width: 3 } .area { fill: var(--data-soft); opacity: .7 }
+.vline { stroke-dasharray: 4 4; stroke-width: 1.5 } .vline.hi { stroke: var(--flow) } .vline.mk { stroke: var(--muted) }
+.dot.hi { fill: var(--flow) } .dot.mk { fill: var(--ink) } .lab { font-size: 12px; font-family: var(--f-mono); font-weight: 600 } .lab.hi { fill: var(--flow) } .lab.mk { fill: var(--ink) }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12.5px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; font-family: var(--f-mono); z-index: 2 }
+.tbl-wrap { overflow-x: auto; min-width: 0 }
+.tbl { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums }
+.tbl th, .tbl td { padding: 6px 12px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top }
+.tbl thead th { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunken); white-space: nowrap }
+.tbl .r { text-align: right } .tbl tr.sel td { background: var(--flow-soft) }
+.tbl.edit td { padding: 4px 12px }
+.steps td.fx { font-family: var(--f-mono); font-size: 13px; color: var(--muted) } .steps td.res { font-family: var(--f-mono); color: var(--flow); font-weight: 600; white-space: nowrap }
+.answers { display: grid; gap: 10px; padding: 12px 14px 14px }
+.ans { border: 1px solid var(--line-soft); border-left: 4px solid var(--flow); border-radius: 8px; padding: 10px 12px; background: var(--sunken) }
+.ans-q { font-weight: 600; font-size: 14px } .ans-v { font-family: var(--f-display); font-weight: 700; font-size: 26px; color: var(--flow); line-height: 1.2; font-variant-numeric: tabular-nums }
+.ans-how { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere }
+.ans-g { display: flex; gap: 10px; align-items: center; margin-top: 6px; font-size: 13px; flex-wrap: wrap }
+.mark { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px } .mark.yes { background: var(--good-soft); color: var(--good) } .mark.no { background: var(--bad-soft); color: var(--bad) }
+.muted { color: var(--muted) } .empty { color: var(--muted); padding: 10px 2px; margin: 0 } .empty.bad { color: var(--bad) }
+.note { font-size: 13px; color: var(--muted); padding: 10px 14px; margin: 0 }
+.prose { padding: 12px 14px; max-width: 90ch } .prose p { margin: 6px 0 } .prose .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px } .prose h4 { margin: 4px 0 } .verdict { background: var(--flow-soft); padding: 8px 12px; border-radius: 8px }
+footer { margin-top: 30px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px }
+@media (max-width: 920px) { .calc-grid, .two-col, .ex-grid { grid-template-columns: minmax(0, 1fr) } .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+@media (max-width: 560px) { .prose .two { grid-template-columns: 1fr } .kpi-v { font-size: 26px } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div><div class="brand-k">Pesquisa Operacional · Lista de exercícios 6 · Prof. Claudio Oliveira</div>
+      <h1>Teoria das Filas <span class="q">● ● ●</span></h1></div>
+    <p class="top-note">Modelos M/M/1 e M/M/s. Edite os números em azul: todas as medidas, respostas e gráficos são recalculados na hora.</p>
+  </header>
+  <nav id="tabs" aria-label="Seções"></nav>
+  <main id="main"></main>
+  <footer>Fórmulas da Ficha 9.1 (M/M/1) e do modelo de 1 fila e vários canais (M/M/s). Mês de 22 dias úteis × 8 h, conforme os enunciados. A simulação sorteia chegadas Poisson e atendimentos exponenciais, por isso os valores observados oscilam em torno dos teóricos.</footer>
+</div>
+<script>
+/* ===== Modelos de fila ===== */
+function fact(n){let f=1;for(let i=2;i<=n;i++)f*=i;return f}
+function mm1(l,m){const r=l/m;if(!(l>0&&m>0)||r>=1)return{ok:false,rho:r};return{ok:true,rho:r,p0:1-r,NS:l/(m-l),NF:l*l/(m*(m-l)),TS:1/(m-l),TF:l/(m*(m-l)),P:n=>(1-r)*Math.pow(r,n),Pgt:k=>Math.pow(r,k+1)}}
+function mms(l,m,s){const r=l/m,u=r/s;if(!(l>0&&m>0&&s>=1)||u>=1)return{ok:false,rho:r,u};
+  let sum=0;for(let n=0;n<s;n++)sum+=Math.pow(r,n)/fact(n);
+  const p0=1/(sum+Math.pow(r,s)/(fact(s)*(1-u)));
+  const NF=p0*Math.pow(r,s)*u/(fact(s)*Math.pow(1-u,2)),TF=NF/l,TS=TF+1/m,NS=l*TS;
+  const P=n=>n<s?p0*Math.pow(r,n)/fact(n):p0*Math.pow(r,n)/(fact(s)*Math.pow(s,n-s));
+  const Pwait=Math.pow(r,s)/(fact(s)*(1-u))*p0;
+  const Pgt=k=>{let c=0;for(let n=0;n<=k;n++)c+=P(n);return Math.max(0,1-c)};
+  return{ok:true,rho:r,u,p0,NF,TF,TS,NS,P,Pwait,Pgt}}
+
+
+/* ===== Formatação ===== */
+const f = (v, d = 2) => (v == null || !isFinite(v)) ? "—" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const f0 = v => f(v, 0), f3 = v => f(v, 3), f4 = v => f(v, 4);
+const pct = (v, d = 1) => (v == null || !isFinite(v)) ? "—" : (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d }) + "%";
+const money = v => (v == null || !isFinite(v)) ? "—" : "$" + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const near = (a, b, tol = 0.006) => isFinite(a) && Math.abs(a - b) <= Math.max(Math.abs(b) * tol, 1e-3);
+const UNSTABLE = { steps: [["Sistema instável", "ρ ≥ 1 (ou ρ ≥ s)", "A fila cresce sem parar: ajuste os dados"]], answers: [], bad: true };
+
+/* ===== Exercícios ===== */
+const EXS = [
+{ id: "4", kind: "M/M/1", title: "Uma fila e um canal com dados por tabela",
+  lead: "Um levantamento deu as distribuições de chegadas e de atendimentos por hora. As duas são aproximadas por Poisson com as mesmas médias.",
+  tables: [
+    { key: "ch", title: "Chegadas por hora", cols: ["Nº de chegadas", "Prob. (%)"], rows: [[10,15],[12,20],[14,33],[16,15],[18,9],[20,6],[22,2]] },
+    { key: "at", title: "Atendimentos por hora", cols: ["Nº de atendimentos", "Prob. (%)"], rows: [[12,5],[14,15],[16,30],[18,30],[20,15],[22,5]] } ],
+  inputs: [ { k: "k", label: "Clientes na fila (item a)", val: 2, unit: "clientes" } ],
+  compute(v, t) {
+    const avg = rows => { const s = rows.reduce((a, r) => a + r[1], 0); return rows.reduce((a, r) => a + r[0] * r[1], 0) / (s || 1); };
+    const l = avg(t.ch), m = avg(t.at), q = mm1(l, m);
+    const S = [["Taxa de chegada", "λ = Σ (nº × prob.)", f(l) + " /h"], ["Taxa de atendimento", "μ = Σ (nº × prob.)", f(m) + " /h"], ["Utilização", "ρ = λ/μ = " + f(l) + " / " + f(m), f3(q.rho)]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    const n = v.k + 1;
+    return { steps: S, chart: { type: "pn", model: q, hi: x => x === n, max: 16, note: `Destaque: n = ${n} no sistema (${v.k} na fila + 1 em atendimento)` },
+      sim: { base: { who: "clientes" }, alts: [{ label: "Sistema do exercício", l, m, note: `λ = ${f(l)} /h · μ = ${f(m)} /h` }] },
+      answers: [
+        { q: `a) Probabilidade de haver ${v.k} clientes na fila`, how: `P(${n}) = ρ^${n} · (1 − ρ) = ${f3(q.rho)}^${n} × ${f3(1 - q.rho)}`, val: f3(q.P(n)), raw: q.P(n), gab: 0.096, gabTxt: "0,096" },
+        { q: "b) Número médio de clientes na fila", how: `NF = λ² / [μ(μ − λ)] = ${f(l * l)} / (${f(m)} × ${f(m - l)})`, val: f(q.NF) + " clientes", raw: q.NF, gab: 4.2, gabTxt: "4,2 clientes", tol: 0.01 },
+        { q: "c) Duração média de cada atendimento", how: `1/μ = 1 / ${f(m)}`, val: f4(1 / m) + " h (" + f(60 / m, 1) + " min)", raw: 1 / m, gab: 0.058, gabTxt: "0,058 h", tol: 0.02 } ] };
+  } },
+{ id: "5", kind: "M/M/1", title: "Tempo no sistema e taxa de ociosidade",
+  lead: "Foi medido o tempo que cada cliente passa no sistema. A ociosidade estimada é de 10%. A partir disso dá para descobrir λ e μ.",
+  tables: [ { key: "ts", title: "Tempo no sistema", cols: ["Tempo (h)", "Prob. (%)"], rows: [[0.3,15],[0.4,20],[0.5,35],[0.6,15],[0.7,10],[0.8,5]] } ],
+  inputs: [ { k: "oc", label: "Taxa de ociosidade", val: 10, unit: "%" }, { k: "n", label: "n do item a", val: 10, unit: "clientes" }, { k: "a", label: "Faixa do item b: de", val: 1, unit: "" }, { k: "b", label: "até", val: 20, unit: "" } ],
+  compute(v, t) {
+    const s = t.ts.reduce((a, r) => a + r[1], 0) || 1, TS = t.ts.reduce((a, r) => a + r[0] * r[1], 0) / s;
+    const rho = 1 - v.oc / 100, m = 1 / (TS * (1 - rho)), l = rho * m, q = mm1(l, m);
+    const S = [["Tempo médio no sistema", "TS = Σ (tempo × prob.)", f(TS, 3) + " h"], ["Utilização", `ociosidade = P₀ = 1 − ρ = ${f(v.oc, 0)}% → ρ`, f3(rho)],
+      ["Taxas", `TS = 1/(μ − λ) e λ = ρμ → μ = 1 / [TS(1 − ρ)]`, `μ = ${f(m)} /h · λ = ${f(l)} /h`]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    const pr = Math.pow(rho, v.a) - Math.pow(rho, v.b + 1);
+    return { steps: S, chart: { type: "pn", model: q, hi: x => x >= v.a && x <= v.b, mark: x => x === v.n, max: Math.max(24, v.b + 3), note: `Barras em laranja: n de ${v.a} a ${v.b} · contorno: n = ${v.n}` },
+      sim: { base: { who: "clientes" }, alts: [{ label: "Sistema do exercício", l, m, note: `λ = ${f(l)} /h · μ = ${f(m)} /h · ociosidade ${f(v.oc, 0)}%` }] },
+      answers: [
+        { q: `a) P(número de clientes no sistema = ${v.n})`, how: `P(${v.n}) = ρ^${v.n} · (1 − ρ) = ${f3(rho)}^${v.n} × ${f3(1 - rho)}`, val: f3(q.P(v.n)), raw: q.P(v.n), gab: 0.035, gabTxt: "0,035" },
+        { q: `b) P(${v.a} ≤ n ≤ ${v.b})`, how: `ρ^${v.a} − ρ^${v.b + 1} = ${f3(Math.pow(rho, v.a))} − ${f3(Math.pow(rho, v.b + 1))}`, val: f(pr), raw: pr, gab: 0.79, gabTxt: "0,79" },
+        { q: "c) Percentual do tempo na fila e no atendimento", how: `atendimento = (1/μ) / TS = ${f(1 / m, 3)} / ${f(TS, 3)}`, val: `${pct((1 / m) / TS)} no atendimento · ${pct(1 - (1 / m) / TS)} na fila`, raw: (1 / m) / TS, gab: 0.10, gabTxt: "10% no atendimento" } ] };
+  } },
+{ id: "6", kind: "M/M/1", title: "Cooperativa: espera máxima e pátio",
+  lead: "A equipe descarrega 4 caminhões por hora. A espera aceitável na fila é de até 0,75 h e o pátio comporta 6 caminhões.",
+  inputs: [ { k: "m", label: "Taxa de descarga μ", val: 4, unit: "caminhões/h" }, { k: "tf", label: "Espera máxima na fila (TF)", val: 0.75, unit: "h" }, { k: "pt", label: "Capacidade do pátio", val: 6, unit: "caminhões" } ],
+  compute(v) {
+    const l = v.tf * v.m * v.m / (1 + v.tf * v.m), q = mm1(l, v.m), k = v.pt + 1;
+    const S = [["Taxa de chegada", `TF = λ / [μ(μ − λ)] → λ = TF·μ² / (1 + TF·μ) = ${f(v.tf)} × ${f(v.m * v.m)} / (1 + ${f(v.tf * v.m)})`, f(l) + " /h"], ["Utilização", `ρ = λ/μ = ${f(l)} / ${f(v.m)}`, f3(q.rho)]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    return { steps: S, chart: { type: "pn", model: q, hi: x => x > k, max: 18, note: `Laranja: n > ${k} (pátio cheio)` },
+      sim: { base: { who: "caminhões", srvName1: "descarga", cap: v.pt, capName: "pátio" }, alts: [{ label: "λ máximo admissível", l, m: v.m, note: `λ = ${f(l)} caminhões/h · μ = ${f(v.m)} /h · vermelho = caminhão sem vaga no pátio` }] },
+      answers: [
+        { q: "a) Taxa de chegadas para TF = máximo admissível", how: "λ = TF·μ² / (1 + TF·μ)", val: f(l) + " caminhões/h", raw: l, gab: 3, gabTxt: "3 caminhões/h" },
+        { q: "b) P(pátio não ser suficiente)", how: `mais de ${v.pt} esperando = mais de ${k} no sistema → P(n > ${k}) = ρ^${k + 1} = ${f3(q.rho)}^${k + 1}`, val: f3(q.Pgt(k)), raw: q.Pgt(k), gab: 0.10, gabTxt: "0,10", tol: 0.02 } ] };
+  } },
+{ id: "7", kind: "Custo", title: "Britador: taxa ótima de atendimento",
+  lead: "Caminhões passam 0,2 h no britador e a ociosidade é de 20%. Com CE = $100/h e CA = $10, qual μ minimiza o custo e se a ampliação de $28.000/mês compensa.",
+  inputs: [ { k: "ts", label: "Tempo no sistema (TS)", val: 0.2, unit: "h" }, { k: "oc", label: "Taxa de ociosidade", val: 20, unit: "%" }, { k: "ce", label: "CE (custo do cliente)", val: 100, unit: "$/h" }, { k: "ca", label: "CA (custo do serviço)", val: 10, unit: "$" }, { k: "inv", label: "Custo da ampliação", val: 28000, unit: "$/mês" }, { k: "dias", label: "Dias úteis por mês", val: 22, unit: "dias" }, { k: "h", label: "Horas por dia", val: 8, unit: "h" } ],
+  compute(v) {
+    const rho = 1 - v.oc / 100, m = 1 / (v.ts * (1 - rho)), l = rho * m, ms = l + Math.sqrt(v.ce * l / v.ca);
+    const CT = x => v.ca * x + v.ce * l / (x - l), H = v.dias * v.h, eco = (CT(m) - CT(ms)) * H;
+    return { steps: [["Taxas", "ρ = 1 − ociosidade; μ = 1 / [TS(1 − ρ)]; λ = ρμ", `ρ = ${f(rho)} · μ = ${f(m)} /h · λ = ${f(l)} /h`], ["Custo por hora", "CT(μ) = CA·μ + CE·NS = CA·μ + CE·λ/(μ − λ)", "mínimo em μ* = λ + √(CE·λ / CA)"],
+        ["Custo atual", `CT(${f(m)}) = ${f(v.ca)}×${f(m)} + ${f(v.ce)}×${f(l)}/${f(m - l)}`, money(CT(m)) + "/h"], ["Custo ótimo", `CT(${f(ms)})`, money(CT(ms)) + "/h"], ["Horas por mês", `${v.dias} dias × ${v.h} h`, H + " h"]],
+      chart: { type: "cost", CT, l, cur: m, opt: ms, lo: l * 1.08, hi: Math.max(ms * 1.9, m * 1.3), xlab: "μ (caminhões/h)" },
+      sim: { base: { who: "caminhões", srvName1: "britador" }, alts: [{ label: `Britador atual (μ = ${f(m)})`, l, m, note: `custo ${money(CT(m))}/h` }, { label: `Britador ampliado (μ* = ${f(ms)})`, l, m: ms, note: `custo ${money(CT(ms))}/h` }] },
+      answers: [
+        { q: "a) Taxa de atendimento que minimiza o custo", how: `μ* = ${f(l)} + √(${f(v.ce)} × ${f(l)} / ${f(v.ca)})`, val: f(ms) + " caminhões/h", raw: ms, gab: 34.14, gabTxt: "34,14 caminhões/h" },
+        { q: "b) A ampliação se justifica?", how: `economia = [${money(CT(m))} − ${money(CT(ms))}] × ${H} h = ${money(eco)} · custo ${money(v.inv)}`, val: (eco > v.inv ? "Sim" : "Não") + " · economia de " + money(eco) + "/mês", raw: eco, gab: 29427.2, gabTxt: "$29.427,20 (sim)", tol: 0.002, verdict: eco > v.inv } ] };
+  } },
+{ id: "8", kind: "M/M/1", title: "NF e TS conhecidos",
+  lead: "Mediu-se NF = 3,2 clientes na fila e TS = 0,5 h no sistema. Calcule a probabilidade de haver menos de 6 clientes no sistema.",
+  inputs: [ { k: "nf", label: "Número médio na fila (NF)", val: 3.2, unit: "clientes" }, { k: "ts", label: "Tempo no sistema (TS)", val: 0.5, unit: "h" }, { k: "n", label: "Menos de", val: 6, unit: "clientes" } ],
+  compute(v) {
+    const d = 1 / v.ts, l = (v.nf * d + Math.sqrt(Math.pow(v.nf * d, 2) + 4 * v.nf * d * d)) / 2, m = l + d, q = mm1(l, m);
+    const S = [["Diferença das taxas", "TS = 1/(μ − λ) → μ − λ = 1/TS", f(d)], ["Equação de λ", `NF = λ² / [μ(μ − λ)] → λ² − ${f(v.nf * d, 1)}λ − ${f(v.nf * d * d, 1)} = 0`, `λ = ${f(l)} · μ = ${f(m)}`], ["Utilização", "ρ = λ/μ", f3(q.rho)]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    const p = 1 - Math.pow(q.rho, v.n);
+    return { steps: S, chart: { type: "pn", model: q, hi: x => x < v.n, max: 18, note: `Laranja: n < ${v.n}` },
+      sim: { base: { who: "clientes" }, alts: [{ label: "Sistema do exercício", l, m, note: `λ = ${f(l)} /h · μ = ${f(m)} /h` }] },
+      answers: [ { q: `P(n < ${v.n})`, how: `1 − ρ^${v.n} = 1 − ${f3(q.rho)}^${v.n}`, val: pct(p), raw: p, gab: 0.738, gabTxt: "73,8%" } ] };
+  } },
+{ id: "9", kind: "Custo", title: "Custo mensal e taxa ótima",
+  lead: "Chegam 20 clientes por hora e há em média 5 no sistema. Cada cliente custa $60/h e cada atendimento $2,50.",
+  inputs: [ { k: "l", label: "Chegadas λ", val: 20, unit: "/h" }, { k: "ns", label: "Clientes no sistema (NS)", val: 5, unit: "" }, { k: "ce", label: "CE (custo do cliente)", val: 60, unit: "$/h" }, { k: "ca", label: "CA (custo do atendimento)", val: 2.5, unit: "$" }, { k: "inv", label: "Custo do aumento", val: 30000, unit: "$/mês" }, { k: "dias", label: "Dias úteis por mês", val: 22, unit: "dias" }, { k: "h", label: "Horas por dia", val: 8, unit: "h" } ],
+  compute(v) {
+    const m = v.l + v.l / v.ns, ms = v.l + Math.sqrt(v.ce * v.l / v.ca), H = v.dias * v.h;
+    const CT = x => v.ca * x + v.ce * v.l / (x - v.l), now = CT(m) * H, best = CT(ms) * H, eco = now - best;
+    return { steps: [["Taxa de atendimento", "NS = λ/(μ − λ) → μ = λ + λ/NS", f(m) + " /h"], ["Custo por hora", "CT = CE·NS + CA·μ", money(CT(m)) + "/h"], ["Taxa ótima", "μ* = λ + √(CE·λ / CA)", f(ms) + " /h"], ["Horas por mês", `${v.dias} × ${v.h}`, H + " h"]],
+      chart: { type: "cost", CT, l: v.l, cur: m, opt: ms, lo: v.l * 1.08, hi: Math.max(ms * 1.8, m * 1.3), xlab: "μ (atendimentos/h)" },
+      sim: { base: { who: "clientes" }, alts: [{ label: `Taxa atual (μ = ${f(m)})`, l: v.l, m, note: `custo ${money(CT(m))}/h` }, { label: `Taxa ótima (μ* = ${f(ms)})`, l: v.l, m: ms, note: `custo ${money(CT(ms))}/h` }] },
+      answers: [
+        { q: "a) Custo total mensal atual", how: `${money(CT(m))}/h × ${H} h`, val: money(now), raw: now, gab: 63360, gabTxt: "$63.360,00" },
+        { q: "b) Menor custo mensal com aumento da taxa", how: `CT(μ* = ${f(ms)}) × ${H} h`, val: money(best), raw: best, gab: 28079.8, gabTxt: "$28.079,80" },
+        { q: "c) Vale a pena o aumento?", how: `economia = ${money(now)} − ${money(best)} · custo ${money(v.inv)}`, val: (eco > v.inv ? "Sim" : "Não") + " · economia de " + money(eco), raw: eco, gab: 35280.2, gabTxt: "Sim, $35.280,20", verdict: eco > v.inv } ] };
+  } },
+{ id: "10", kind: "M/M/s", title: "Dois canais e uma fila",
+  lead: "Chegam 30 clientes por hora e cada atendente atende 20. Com uma segunda seção igual, o sistema passa a ter dois canais e uma fila.",
+  inputs: [ { k: "l", label: "Chegadas λ", val: 30, unit: "/h" }, { k: "m", label: "Atendimento por canal μ", val: 20, unit: "/h" }, { k: "s", label: "Canais s", val: 2, unit: "", int: true } ],
+  compute(v) {
+    const q = mms(v.l, v.m, Math.round(v.s)), s = Math.round(v.s);
+    const S = [["Relação", "ρ = λ/μ (precisa ser < s)", `${f(q.rho)} < ${s}`]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    S.push(["Sistema vazio", "P₀ = 1 / [Σ ρⁿ/n! + ρˢ/(s!(1 − ρ/s))]", f4(q.p0)], ["Ocupação total", "P(n ≥ s) = ρˢ/(s!(1 − ρ/s)) · P₀", pct(q.Pwait)]);
+    return { steps: S, chart: { type: "pn", model: q, hi: x => x > s, max: 14, note: `Laranja: n > ${s} (cliente esperando na fila)` },
+      sim: { def: 1, base: { who: "clientes", srvName: "canais" }, alts: [{ label: "Antes: 1 canal", l: v.l, m: v.m, s: 1, note: v.l >= v.m ? "λ > μ: a fila explode" : "" }, { label: `Depois: ${s} canais`, l: v.l, m: v.m, s, note: `λ = ${f(v.l)} /h · μ = ${f(v.m)} /h por canal` }] },
+      answers: [
+        { q: "a) Tempo médio na fila", how: "TF = NF / λ", val: f4(q.TF) + " h (" + f(q.TF * 60, 1) + " min)", raw: q.TF, gab: 0.0643, gabTxt: "0,0643 h" },
+        { q: "b) Número médio na fila", how: "NF = P₀ · ρˢ · (ρ/s) / [s!(1 − ρ/s)²]", val: f3(q.NF) + " clientes", raw: q.NF, gab: 1.929, gabTxt: "1,929 cliente" } ] };
+  } },
+{ id: "11", kind: "M/M/s", title: "Estação ferroviária",
+  lead: "Chegam 7 trens por hora e cada manobra leva em média 7,5 min. O trem parado custa $1.000 por minuto.",
+  inputs: [ { k: "l", label: "Chegadas λ", val: 7, unit: "trens/h" }, { k: "t", label: "Tempo médio de manobra", val: 7.5, unit: "min" }, { k: "c", label: "Custo do trem parado", val: 1000, unit: "$/min" }, { k: "lim", label: "Limite por trem", val: 5000, unit: "$" }, { k: "h", label: "Horas por dia", val: 12, unit: "h" }, { k: "dv", label: "Trens que cabem nos desvios", val: 2, unit: "" }, { k: "fa", label: "Fator de acidente", val: 10, unit: "%" }, { k: "la", label: "Limite de acidentes", val: 1.5, unit: "%" }, { k: "pl", label: "Custo anual por plataforma", val: 200000, unit: "$" }, { k: "ano", label: "Dias por ano", val: 360, unit: "dias" } ],
+  compute(v) {
+    const m = 60 / v.t, q = mm1(v.l, m);
+    const S = [["Taxa de atendimento", `μ = 60 / ${f(v.t, 1)} min`, f(m) + " trens/h"], ["Utilização", "ρ = λ/μ", f3(v.l / m)]];
+    if (!q.ok) return { ...UNSTABLE, steps: S.concat(UNSTABLE.steps) };
+    const TSmin = q.TS * 60, cpt = TSmin * v.c, trens = v.l * v.h, k = v.dv + 1, P = q.Pgt(k), ac = v.fa / 100 * P * P;
+    const rows = [];
+    for (let s = 1; s <= 4; s++) { const r = mms(v.l, m, s); if (r.ok) rows.push({ s, TF: r.TF * 60, TS: r.TS * 60, cost: trens * v.ano * r.TS * 60 * v.c + s * v.pl, costG: trens * v.ano * Math.floor(r.TS * 1000) / 1000 * 60 * v.c + s * v.pl, okA: r.TF * 60 * v.c <= v.lim, acc: v.fa / 100 * Math.pow(r.Pgt(s + v.dv), 2) }); }
+    const minS = rows.find(r => r.okA && r.acc <= v.la / 100);
+    S.push(["Tempo no sistema", "TS = 1/(μ − λ)", f(TSmin, 1) + " min"], ["Trens por dia", `${f(v.l, 0)} × ${v.h} h`, f0(trens)]);
+    return { steps: S, table: rows, minS, chart: { type: "plat", rows },
+      sim: { def: 0, base: { who: "trens", srvName: "plataformas", srvName1: "plataforma", cap: v.dv, capName: "desvios" }, alts: [1, 2, 3].map(s => ({ label: s === 1 ? "1 plataforma (hoje)" : `${s} plataformas`, l: v.l, m, s, note: "vermelho = trem sem lugar nos desvios" })) },
+      answers: [
+        { q: "a) A estação deve ser ampliada?", how: `custo por trem = TS × custo = ${f(TSmin, 1)} min × ${money(v.c)} = ${money(cpt)} · limite ${money(v.lim)}`, val: (cpt > v.lim ? "Sim" : "Não") + " · TS = " + f(TSmin, 1) + " min", raw: TSmin, gab: 60, gabTxt: "Sim, TS = 60 min", verdict: cpt > v.lim },
+        { q: "b) Custo médio diário de locomotiva parada", how: `${f0(trens)} trens × ${money(cpt)}`, val: money(trens * cpt), raw: trens * cpt, gab: 5040000, gabTxt: "$5.040.000,00" },
+        { q: "c) Pelo critério de acidentes, deve ampliar?", how: `mais de ${v.dv} esperando = n > ${k}: P = ρ^${k + 1} = ${f3(P)} · acidente = ${f(v.fa, 0)}% × P² = ${f(v.fa / 100, 2)} × ${f3(P * P)}`, val: (ac > v.la / 100 ? "Sim" : "Não") + " · acidente = " + pct(ac, 2), raw: ac, gab: 0.0344, gabTxt: "3,44% (P² = 0,343)", verdict: ac > v.la / 100 },
+        { q: "d) Número ideal de plataformas", how: minS ? `menor número que atende os critérios (a) e (c): espera na fila ${f(minS.TF, 2)} min = ${money(minS.TF * v.c)} por trem` : "nenhuma configuração atende", val: minS ? `${minS.s} plataformas · ${money(minS.costG)}/ano` : "—", raw: minS ? minS.costG : NaN, gab: 279817600, gabTxt: "Duas, $279.817.600,00", tol: 0.0005 } ] };
+  } }
+];
+const CONCEITOS = [
+  { id: "1", title: "Modelagem de sistemas de filas", html: `<table class="tbl"><thead><tr><th>Situação</th><th>Clientes</th><th>Atendimento</th><th>Características</th></tr></thead><tbody>
+    <tr><td>a) Centro de distribuição</td><td>Caminhões para carregar ou descarregar</td><td>Docas com equipes</td><td>Vários canais, fila única no pátio, pátio limitado</td></tr>
+    <tr><td>b) Caixas de supermercado</td><td>Clientes com compras</td><td>Operadores de caixa</td><td>Uma fila por caixa; o cliente escolhe a menor e pode trocar</td></tr>
+    <tr><td>d) Pedágio em rodovias</td><td>Veículos</td><td>Cabines de cobrança</td><td>Canais em paralelo, cabines manuais e automáticas, λ com picos</td></tr>
+    <tr><td>e) Posto com várias ilhas</td><td>Veículos para abastecer</td><td>Bombas e frentistas</td><td>Vários canais, espaço limitado, desistência quando a fila é grande</td></tr></tbody></table>` },
+  { id: "2", title: "Máquina determinística", html: `<p>Chegam 60/3 = <b>20 peças/h</b> e a máquina processa 60/5 = <b>12 peças/h</b>. Sobram <b>8 peças por hora</b>.</p><p>Como λ &gt; μ (ρ = 1,67), o sistema é <b>instável</b>: a fila cresce sem parar e a máquina nunca fica ociosa. Em 8 h chegam cerca de 160 peças e saem 96, deixando <b>cerca de 64 peças acumuladas</b>.</p>` },
+  { id: "3", title: "Balsa: cobrar antes ou depois", html: `<div class="two"><div><h4>Cobrar antes</h4><p>Duas filas em série: guichê e embarque. Os carros chegam um a um, de forma aleatória, e dá para usar Poisson e M/M/1 ou M/M/s. A cobrança não atrapalha o desembarque.</p></div><div><h4>Cobrar depois</h4><p>Os carros chegam ao guichê <b>em lote</b>, com a balsa inteira de uma vez. Isso forma picos de fila, pode travar a rampa e atrasar o retorno da balsa. As chegadas em lote fogem do Poisson.</p></div></div><p class="verdict">Cobrar antes é mais simples de modelar e de operar, porque distribui a demanda no tempo.</p>` } ];
+
+const el = (tag, a = {}, ...kids) => { const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(a)) { if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else if (k === "html") e.innerHTML = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+  kids.flat().forEach(c => c != null && e.append(c.nodeType ? c : document.createTextNode(c))); return e; };
+const NS_ = "http://www.w3.org/2000/svg";
+const sv = (t, a = {}) => { const e = document.createElementNS(NS_, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+const clone = o => JSON.parse(JSON.stringify(o));
+
+let cur = "calc";
+const state = {};
+EXS.forEach(x => { state[x.id] = { v: Object.fromEntries((x.inputs || []).map(i => [i.k, i.val])), t: Object.fromEntries((x.tables || []).map(t => [t.key, clone(t.rows)])) }; });
+const base = clone(state);
+const calc = { l: 18, m: 20, s: 1, ce: 60, ca: 2.5, unit: "h" };
+
+/* ===== Abas ===== */
+function tabs() {
+  const nav = document.getElementById("tabs"); nav.innerHTML = "";
+  const items = [{ id: "calc", k: "λ μ", l: "Calculadora" }, { id: "conc", k: "1–3", l: "Conceitos" }].concat(EXS.map(x => ({ id: x.id, k: x.id, l: x.kind })));
+  items.forEach(t => nav.append(el("button", { type: "button", class: "tab" + (cur === t.id ? " on" : ""), "aria-pressed": String(cur === t.id), onclick: () => go(t.id) },
+    el("span", { class: "tab-k", text: t.k }), el("span", { class: "tab-l", text: t.l }))));
+}
+function go(id) { cur = id; stopSim(); render(); try { history.replaceState(null, "", id === "calc" ? "#calculadora" : id === "conc" ? "#conceitos" : "#ex" + id); } catch (e) {} }
+function render() { tabs(); const m = document.getElementById("main"); m.innerHTML = "";
+  if (cur === "calc") renderCalc(m); else if (cur === "conc") renderConc(m); else renderEx(m, EXS.find(x => x.id === cur)); }
+
+/* ===== Inputs ===== */
+function field(id, label, val, unit, on, opts = {}) {
+  const inp = el("input", { id, type: "number", step: "any", min: opts.min ?? "0", value: String(val), class: "num-in" });
+  inp.addEventListener("input", e => { const x = parseFloat(e.target.value); on(isFinite(x) ? (opts.int ? Math.max(1, Math.round(x)) : x) : 0); });
+  return el("label", { class: "fld", for: id }, el("span", { class: "fld-l", text: label }), el("span", { class: "fld-r" }, inp, unit ? el("span", { class: "fld-u", text: unit }) : null));
+}
+
+/* ===== Calculadora ===== */
+function renderCalc(root) {
+  root.append(el("section", { class: "head" }, el("div", {},
+    el("div", { class: "eyebrow", text: "Calculadora · M/M/1 e M/M/s" }),
+    el("h2", { text: "Monte a fila e veja as medidas na hora" }),
+    el("p", { class: "lead", text: "Digite as taxas de chegada e de atendimento e o número de canais. Com s = 1 vale o M/M/1; com mais canais, o M/M/s com uma fila só. A simulação ao lado mostra clientes chegando e sendo atendidos com esses mesmos números." }))));
+  const grid = el("div", { class: "calc-grid" });
+  const form = el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Valores a inserir" })));
+  const fl = el("div", { class: "fields" },
+    field("c-l", "Taxa de chegada λ", calc.l, "/" + calc.unit, v => { calc.l = v; upCalc(); }),
+    field("c-m", "Taxa de serviço μ (por canal)", calc.m, "/" + calc.unit, v => { calc.m = v; upCalc(); }),
+    field("c-s", "Número de canais s", calc.s, "", v => { calc.s = v; upCalc(); }, { int: true, min: "1" }),
+    field("c-ce", "Custo do cliente CE", calc.ce, "$/" + calc.unit, v => { calc.ce = v; upCalc(); }),
+    field("c-ca", "Custo do canal CA", calc.ca, "$/" + calc.unit, v => { calc.ca = v; upCalc(); }));
+  form.append(fl, el("div", { class: "cond", id: "cond" }));
+  const sp = simPanel("Simulação da fila"); calcSim = sp.sim;
+  grid.append(form, sp.panel); root.append(grid);
+  root.append(el("section", { class: "kpis", id: "kpis" }));
+  const lower = el("div", { class: "two-col" },
+    el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Distribuição do número de clientes no sistema" }), el("span", { class: "hint", text: "P(n) · laranja = cliente esperando" })), el("div", { class: "chart", id: "cPn" })),
+    el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Custo total por número de canais" }), el("span", { class: "hint", text: "CT = CE·NS + CA·s" })), el("div", { class: "chart", id: "cCost" })));
+  root.append(lower);
+  root.append(el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Ocupação total por número de canais" }), el("span", { class: "hint", text: "P(n ≥ s): chance de o cliente chegar e ter que esperar" })), el("div", { class: "tbl-wrap", id: "cTab" })));
+  upCalc();
+}
+function upCalc() {
+  const s = Math.max(1, Math.round(calc.s)), q = mms(calc.l, calc.m, s);
+  const cond = document.getElementById("cond");
+  cond.className = "cond " + (q.ok ? "good" : "bad");
+  cond.innerHTML = `<b>Condição básica:</b> ρ = λ/μ = ${f(calc.l / calc.m)} ${q.ok ? "<" : "≥"} s = ${s} · ${q.ok ? "sistema estável" : "a fila cresce sem parar"}`;
+  const k = document.getElementById("kpis"); k.innerHTML = "";
+  const tile = (lab, val, sub, big) => k.append(el("div", { class: "kpi" + (big ? " big" : "") }, el("div", { class: "kpi-l", text: lab }), el("div", { class: "kpi-v", text: val }), sub ? el("div", { class: "kpi-s", text: sub }) : null));
+  if (q.ok) {
+    const u = calc.unit, mins = x => u === "h" ? ` (${f(x * 60, 1)} min)` : "";
+    tile("Utilização por canal", pct(q.u), "ρ/s", true); tile("Sistema vazio", pct(q.p0), "P₀");
+    tile("Clientes na fila", f(q.NF), "NF"); tile("Clientes no sistema", f(q.NS), "NS");
+    tile("Tempo na fila", f(q.TF, 3) + " " + u, "TF" + mins(q.TF)); tile("Tempo no sistema", f(q.TS, 3) + " " + u, "TS" + mins(q.TS));
+    tile("Chance de esperar", pct(q.Pwait), "P(n ≥ s)"); tile("Custo total", money(calc.ce * q.NS + calc.ca * s), `por ${u} · CE·NS + CA·s`);
+  } else tile("Sistema instável", "—", "Aumente μ ou s até ρ/s < 1", true);
+  drawPn(document.getElementById("cPn"), q, n => n >= s + 1, null, 16);
+  const pts = []; for (let x = 1; x <= 12; x++) { const r = mms(calc.l, calc.m, x); if (r.ok) pts.push({ x, y: calc.ce * r.NS + calc.ca * x }); }
+  drawBarsCost(document.getElementById("cCost"), pts, s);
+  const tb = el("table", { class: "tbl" }, el("thead", {}, el("tr", {}, ["Canais (s)", "ρ/s", "P₀", "P(n ≥ s)", "NF", "TF", "Custo total"].map((h, i) => el("th", { class: i ? "r" : "", text: h })))));
+  const body = el("tbody");
+  for (let x = 1; x <= 10; x++) { const r = mms(calc.l, calc.m, x);
+    body.append(el("tr", { class: x === s ? "sel" : "" }, el("td", { text: String(x) }), ...(r.ok ? [pct(r.u), f4(r.p0), pct(r.Pwait), f3(r.NF), f(r.TF, 4), money(calc.ce * r.NS + calc.ca * x)] : ["≥ 100%", "—", "—", "—", "—", "instável"]).map(t => el("td", { class: "r", text: t })))); }
+  tb.append(body); const c = document.getElementById("cTab"); c.innerHTML = ""; c.append(tb);
+  calcSim.set({ l: calc.l, m: calc.m, s });
+}
+
+/* ===== Simulação (uma por aba) ===== */
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let SIMS = [], raf = 0;
+function expo(rate) { return -Math.log(1 - Math.random()) / rate; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+class QSim {
+  constructor(cv, stats, btn) { this.cv = cv; this.stats = stats; this.btn = btn; this.on = !REDUCED; this.p = null; this.speed = 1;
+    if (btn) btn.addEventListener("click", () => { this.on = !this.on; this.last = performance.now(); this.label(); }); this.label(); }
+  label() { if (this.btn) this.btn.textContent = this.on ? "Pausar" : "Iniciar"; }
+  set(p) { const key = JSON.stringify(p); if (key === this.key) return; this.key = key; this.p = p; this.reset(); }
+  reset() { const s = Math.max(1, Math.round(this.p.s || 1));
+    Object.assign(this, { t: 0, next: expo(this.p.l), q: [], srv: new Array(s).fill(null), served: 0, area: 0, areaQ: 0, over: 0, last: performance.now() }); }
+  step(now) { const p = this.p; if (!p) return;
+    if (!this.on || !(p.l > 0 && p.m > 0)) { this.last = now; return; }
+    let dt = Math.min(0.1, (now - this.last) / 1000) * (2.2 / p.l) * this.speed; this.last = now;
+    while (dt > 0) {
+      const nEnd = Math.min(...this.srv.map(x => x ? x.end : Infinity)), nxt = Math.min(this.next, nEnd), st = Math.min(dt, nxt - this.t);
+      const inSys = this.q.length + this.srv.filter(Boolean).length;
+      this.area += inSys * st; this.areaQ += this.q.length * st; if (p.cap != null && this.q.length > p.cap) this.over += st;
+      this.t += st; dt -= st;
+      if (this.t >= this.next - 1e-12) { this.q.push(1); this.next = this.t + expo(p.l); }
+      this.srv.forEach((x, i) => { if (x && this.t >= x.end - 1e-12) { this.srv[i] = null; this.served++; } });
+      this.srv.forEach((x, i) => { if (!x && this.q.length) { this.q.shift(); this.srv[i] = { end: this.t + expo(p.m) }; } });
+      if (this.q.length > 400) this.q.length = 400;
+    } }
+  draw() { const cv = this.cv, p = this.p; if (!p) return;
+    const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight || 180;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const ink = css("--ink"), muted = css("--muted"), flow = css("--flow"), data = css("--data"), line = css("--line"), surf = css("--surface"), bad = css("--bad");
+    const s = this.srv.length, sx = W - 120, gap = Math.min(40, (H - 34) / s), h0 = H / 2 - (s - 1) * gap / 2, r = 7, pitch = r * 2 + 4;
+    g.font = "600 11px " + css("--f-body"); g.fillStyle = muted;
+    g.fillText((p.who || "CLIENTES").toUpperCase() + " CHEGANDO", 8, 16); g.fillText("NA FILA: " + this.q.length, Math.max(150, sx / 2 - 30), 16);
+    g.fillText(s > 1 ? `${s} ${(p.srvName || "canais").toUpperCase()}` : (p.srvName1 || "CANAL").toUpperCase(), sx - 6, 16);
+    g.strokeStyle = line; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(8, H / 2); g.lineTo(sx - 30, H / 2); g.stroke(); g.setLineDash([]);
+    if (p.cap != null) { const x1 = sx - 40 - (p.cap - 1) * pitch - r - 4, x2 = sx - 40 + r + 4;
+      g.strokeStyle = data; g.lineWidth = 1.5; g.setLineDash([3, 3]); g.strokeRect(x1, H / 2 - 16, x2 - x1, 32); g.setLineDash([]);
+      g.fillStyle = data; g.fillText(`${(p.capName || "espaço").toUpperCase()}: ${p.cap} VAGA${p.cap > 1 ? "S" : ""}`, Math.max(8, x1), H / 2 + 32); }
+    const maxShow = Math.floor((sx - 50) / pitch);
+    for (let i = 0; i < Math.min(this.q.length, maxShow); i++) { const x = sx - 40 - i * pitch;
+      g.beginPath(); g.arc(x, H / 2, r, 0, 7); g.fillStyle = p.cap != null && i >= p.cap ? bad : flow; g.fill(); }
+    if (this.q.length > maxShow) { g.fillStyle = flow; g.fillText("+" + (this.q.length - maxShow), 10, H / 2 - 14); }
+    this.srv.forEach((x, i) => { const y = h0 + i * gap; g.lineWidth = 2; g.strokeStyle = ink; g.fillStyle = x ? data : surf;
+      g.beginPath(); g.roundRect(sx, y - 12, 34, 24, 5); g.fill(); g.stroke();
+      if (x) { g.beginPath(); g.arc(sx + 17, y, r - 1, 0, 7); g.fillStyle = surf; g.fill(); }
+      g.strokeStyle = line; g.lineWidth = 1.5; g.beginPath(); g.moveTo(sx - 26, H / 2); g.lineTo(sx, y); g.stroke();
+      g.fillStyle = muted; g.fillText(x ? "atendendo" : "livre", sx + 42, y + 4); });
+    if (this.stats && this.t > 0) { const q = mms(p.l, p.m, s), u = p.unit || "h";
+      let html = `<span>Tempo simulado <b>${f(this.t, 1)} ${u}</b></span><span>Atendidos <b>${this.served}</b></span>` +
+        `<span>NS observado <b>${f(this.area / this.t)}</b>${q.ok ? " · teórico " + f(q.NS) : " · teórico: cresce sem parar"}</span>` +
+        `<span>NF observado <b>${f(this.areaQ / this.t)}</b>${q.ok ? " · teórico " + f(q.NF) : ""}</span>`;
+      if (p.cap != null) html += `<span>Tempo com ${p.capName || "espaço"} cheio <b>${pct(this.over / this.t)}</b>${q.ok ? " · teórico " + pct(q.Pgt(p.cap + s)) : ""}</span>`;
+      if (!q.ok) html += `<span class="warn">ρ ≥ s: a fila cresce sem parar</span>`;
+      this.stats.innerHTML = html; } }
+}
+function loop() { const now = performance.now(); SIMS = SIMS.filter(x => x.cv.isConnected); SIMS.forEach(x => { x.step(now); x.draw(); }); raf = SIMS.length ? requestAnimationFrame(loop) : 0; }
+function addSim(sim) { SIMS.push(sim); if (!raf) raf = requestAnimationFrame(loop); return sim; }
+function stopSim() {}
+function simPanel(title, hint) {
+  const btn = el("button", { type: "button", class: "ghost", text: "Pausar" });
+  const opts = el("div", { class: "sim-opts" }), cv = el("canvas", { class: "sim", "aria-label": "Simulação animada da fila" }), stats = el("div", { class: "sim-stats" });
+  const spd = el("div", { class: "speed", role: "group", "aria-label": "Velocidade da simulação" });
+  const panel = el("section", { class: "panel sim-panel" }, el("div", { class: "panel-h" }, el("h3", { text: title }), el("div", { class: "sim-h" }, hint ? el("span", { class: "hint", text: hint }) : null, spd, btn)), opts, cv, stats);
+  const sim = addSim(new QSim(cv, stats, btn));
+  [1, 5, 25].forEach(v => spd.append(el("button", { type: "button", class: "spd" + (v === 1 ? " on" : ""), "aria-pressed": String(v === 1), text: v + "×",
+    onclick: e => { sim.speed = v; spd.querySelectorAll(".spd").forEach(b => { b.classList.toggle("on", b === e.currentTarget); b.setAttribute("aria-pressed", String(b === e.currentTarget)); }); } })));
+  return { panel, sim, opts };
+}
+let calcSim = null;
+
+/* ===== Gráficos ===== */
+function tip(box) { let t = box.querySelector(".tip"); if (!t) { t = el("div", { class: "tip" }); box.append(t); } return t; }
+function showTip(box, ev, html) { const t = tip(box), r = box.getBoundingClientRect(); t.innerHTML = html; t.hidden = false;
+  const x = Math.min(r.width - 150, Math.max(4, ev.clientX - r.left + 10)), y = Math.max(4, ev.clientY - r.top - 40); t.style.left = x + "px"; t.style.top = y + "px"; }
+function drawPn(box, q, hi, mark, max) {
+  box.innerHTML = ""; if (!q || !q.ok) { box.append(el("p", { class: "empty", text: "Sistema instável: não existe distribuição estacionária." })); return; }
+  const W = 560, H = 230, L = 44, R = 10, T = 14, B = 30, n = max, vals = Array.from({ length: n + 1 }, (_, i) => q.P(i));
+  const top = Math.max(...vals) * 1.15 || 1, bw = (W - L - R) / (n + 1);
+  const s = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "svgc", role: "img", "aria-label": "Distribuição de probabilidade do número de clientes" });
+  for (let k = 0; k <= 4; k++) { const v = top * k / 4, y = H - B - (H - T - B) * k / 4;
+    s.append(sv("line", { x1: L, x2: W - R, y1: y, y2: y, class: "grid" })); const t = sv("text", { x: L - 6, y: y + 4, class: "ax", "text-anchor": "end" }); t.textContent = pct(v, 0); s.append(t); }
+  vals.forEach((v, i) => { const h = (H - T - B) * v / top, x = L + i * bw + 2, y = H - B - h;
+    const rc = sv("rect", { x, y, width: Math.max(2, bw - 4), height: Math.max(0, h), rx: 2, class: "bar" + (hi && hi(i) ? " hi" : "") + (mark && mark(i) ? " mk" : "") });
+    rc.addEventListener("mousemove", ev => showTip(box, ev, `<b>n = ${i}</b><br>P(${i}) = ${f4(v)}`)); rc.addEventListener("mouseleave", () => tip(box).hidden = true);
+    s.append(rc); if (i % (n > 20 ? 2 : 1) === 0) { const t = sv("text", { x: x + (bw - 4) / 2, y: H - B + 16, class: "ax", "text-anchor": "middle" }); t.textContent = i; s.append(t); } });
+  const xl = sv("text", { x: W - R, y: H - 2, class: "ax", "text-anchor": "end" }); xl.textContent = "n (clientes no sistema)"; s.append(xl);
+  box.append(s);
+}
+function drawBarsCost(box, pts, sel) {
+  box.innerHTML = ""; if (!pts.length) { box.append(el("p", { class: "empty", text: "Nenhum número de canais deixa o sistema estável." })); return; }
+  const W = 560, H = 230, L = 64, R = 10, T = 14, B = 30, top = Math.max(...pts.map(p => p.y)) * 1.12, bw = (W - L - R) / pts.length, best = pts.reduce((a, b) => b.y < a.y ? b : a);
+  const s = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "svgc", role: "img", "aria-label": "Custo total por número de canais" });
+  for (let k = 0; k <= 4; k++) { const v = top * k / 4, y = H - B - (H - T - B) * k / 4; s.append(sv("line", { x1: L, x2: W - R, y1: y, y2: y, class: "grid" }));
+    const t = sv("text", { x: L - 6, y: y + 4, class: "ax", "text-anchor": "end" }); t.textContent = "$" + f0(v); s.append(t); }
+  pts.forEach((p, i) => { const h = (H - T - B) * p.y / top, x = L + i * bw + 4;
+    const rc = sv("rect", { x, y: H - B - h, width: bw - 8, height: h, rx: 2, class: "bar" + (p.x === best.x ? " hi" : "") + (p.x === sel ? " mk" : "") });
+    rc.addEventListener("mousemove", ev => showTip(box, ev, `<b>s = ${p.x}</b><br>CT = ${money(p.y)}`)); rc.addEventListener("mouseleave", () => tip(box).hidden = true); s.append(rc);
+    const t = sv("text", { x: x + (bw - 8) / 2, y: H - B + 16, class: "ax", "text-anchor": "middle" }); t.textContent = p.x; s.append(t); });
+  const xl = sv("text", { x: W - R, y: H - 2, class: "ax", "text-anchor": "end" }); xl.textContent = `canais (s) · laranja = menor custo (s = ${best.x})`; s.append(xl);
+  box.append(s);
+}
+function drawCost(box, c) {
+  box.innerHTML = ""; const W = 560, H = 240, L = 64, R = 14, T = 16, B = 32, N = 120, xs = [], ys = [];
+  for (let i = 0; i <= N; i++) { const x = c.lo + (c.hi - c.lo) * i / N; xs.push(x); ys.push(c.CT(x)); }
+  const ymin = c.CT(c.opt) * 0.8, ymax = Math.min(Math.max(...ys), c.CT(c.cur) * 2.2, c.CT(c.opt) * 4);
+  const X = x => L + (W - L - R) * (x - c.lo) / (c.hi - c.lo), Y = y => H - B - (H - T - B) * (Math.min(y, ymax) - ymin) / (ymax - ymin);
+  const s = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "svgc", role: "img", "aria-label": "Curva de custo total por taxa de atendimento" });
+  for (let k = 0; k <= 4; k++) { const v = ymin + (ymax - ymin) * k / 4; s.append(sv("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), class: "grid" }));
+    const t = sv("text", { x: L - 6, y: Y(v) + 4, class: "ax", "text-anchor": "end" }); t.textContent = "$" + f0(v); s.append(t); }
+  for (let k = 0; k <= 5; k++) { const v = c.lo + (c.hi - c.lo) * k / 5; const t = sv("text", { x: X(v), y: H - B + 16, class: "ax", "text-anchor": "middle" }); t.textContent = f(v, 1); s.append(t); }
+  const d = xs.map((x, i) => (i ? "L" : "M") + X(x).toFixed(1) + "," + Y(ys[i]).toFixed(1)).join(" ");
+  s.append(sv("path", { d: d + ` L${X(c.hi)},${H - B} L${X(c.lo)},${H - B} Z`, class: "area" }), sv("path", { d, class: "curve" }));
+  [[c.cur, "atual", "mk"], [c.opt, "ótimo μ*", "hi"]].forEach(([x, lab, cl]) => { if (x < c.lo || x > c.hi) return;
+    s.append(sv("line", { x1: X(x), x2: X(x), y1: T, y2: H - B, class: "vline " + cl }), sv("circle", { cx: X(x), cy: Y(c.CT(x)), r: 6, class: "dot " + cl }));
+    const t = sv("text", { x: X(x) + 8, y: cl === "hi" ? Y(c.CT(x)) + 22 : Y(c.CT(x)) - 12, class: "lab " + cl }); t.textContent = `${lab}: ${f(x, 2)} → ${money(c.CT(x))}/h`; s.append(t); });
+  const xl = sv("text", { x: W - R, y: H - 2, class: "ax", "text-anchor": "end" }); xl.textContent = c.xlab; s.append(xl);
+  const hit = sv("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+  hit.addEventListener("mousemove", ev => { const r = s.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, x = c.lo + (px - L) / (W - L - R) * (c.hi - c.lo);
+    if (x > c.lo && x < c.hi) showTip(box, ev, `<b>μ = ${f(x)}</b><br>CT = ${money(c.CT(x))}/h`); });
+  hit.addEventListener("mouseleave", () => tip(box).hidden = true); s.append(hit);
+  box.append(s);
+}
+function drawPlat(box, rows, minS) {
+  box.innerHTML = "";
+  const t = el("table", { class: "tbl" }, el("thead", {}, el("tr", {}, ["Plataformas", "TF (min)", "Custo de espera por trem", "TS (min)", "Prob. de acidente", "Custo anual (gabarito)", "Atende (a) e (c)?"].map((h, i) => el("th", { class: i ? "r" : "", text: h })))));
+  const b = el("tbody");
+  rows.forEach(r => b.append(el("tr", { class: minS && r.s === minS.s ? "sel" : "" }, el("td", { text: String(r.s) }), el("td", { class: "r", text: f(r.TF, 2) }), el("td", { class: "r", text: money(r.TF * 1000 * (state["11"].v.c / 1000)) }),
+    el("td", { class: "r", text: f(r.TS, 2) }), el("td", { class: "r", text: pct(r.acc, 2) }), el("td", { class: "r", text: money(r.costG) }), el("td", { class: "r" }, el("span", { class: "mark " + (r.okA && r.acc <= state["11"].v.la / 100 ? "yes" : "no"), text: r.okA && r.acc <= state["11"].v.la / 100 ? "sim" : "não" })))));
+  t.append(b); box.append(el("div", { class: "tbl-wrap" }, t),
+    el("p", { class: "note", text: "O custo anual segue o gabarito: trens por dia × 360 dias × TS (h, truncado em 3 casas) × 60 × custo por minuto + plataformas. Pela conta pura de custo, 3 plataformas sairiam mais baratas; o gabarito escolhe 2, o menor número que já atende os limites de espera e de acidente." }));
+}
+
+/* ===== Exercícios ===== */
+let exSim = null;
+function renderEx(root, x) {
+  const st = state[x.id];
+  root.append(el("section", { class: "head" }, el("div", {}, el("div", { class: "eyebrow" }, el("span", { text: "Exercício " + x.id }), el("span", { class: "chip", text: x.kind })),
+    el("h2", { text: x.title }), el("p", { class: "lead", text: x.lead }))));
+  const grid = el("div", { class: "ex-grid" });
+  const dataP = el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Dados do enunciado" }),
+    el("button", { type: "button", class: "ghost", text: "Restaurar", onclick: () => { state[x.id] = clone(base[x.id]); render(); } })));
+  const fl = el("div", { class: "fields" });
+  (x.inputs || []).forEach(i => fl.append(field(`in-${x.id}-${i.k}`, i.label, st.v[i.k], i.unit, v => { st.v[i.k] = v; upEx(x); }, { int: i.int })));
+  dataP.append(fl);
+  (x.tables || []).forEach(tb => {
+    const t = el("table", { class: "tbl edit" }, el("thead", {}, el("tr", {}, tb.cols.map((c, i) => el("th", { class: "r", text: c })))));
+    const body = el("tbody");
+    st.t[tb.key].forEach((row, ri) => body.append(el("tr", {}, row.map((val, ci) => el("td", { class: "r" },
+      el("input", { type: "number", step: "any", class: "num-in sm", id: `tb-${x.id}-${tb.key}-${ri}-${ci}`, value: String(val), "aria-label": `${tb.cols[ci]} linha ${ri + 1}`,
+        oninput: e => { const v = parseFloat(e.target.value); st.t[tb.key][ri][ci] = isFinite(v) ? v : 0; upEx(x); } }))))));
+    t.append(body); dataP.append(el("h4", { text: tb.title }), el("div", { class: "tbl-wrap" }, t));
+  });
+  const res = el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Respostas" }), el("span", { class: "hint", text: "✓ = bate com o gabarito da lista" })), el("div", { id: "ans", class: "answers" }));
+  grid.append(dataP, res); root.append(grid);
+  const sp = simPanel("A fila funcionando", "Simulação com os dados deste exercício"); exSim = sp; root.append(sp.panel);
+  root.append(el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: "Passo a passo" })), el("div", { class: "tbl-wrap" }, el("table", { class: "tbl steps", id: "steps" }))));
+  root.append(el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { id: "chT", text: "Gráfico" }), el("span", { class: "hint", id: "chN" })), el("div", { class: "chart", id: "chart" })));
+  upEx(x);
+}
+function upEx(x) {
+  const st = state[x.id], r = x.compute(st.v, st.t), edited = JSON.stringify(st) !== JSON.stringify(base[x.id]);
+  const a = document.getElementById("ans"); a.innerHTML = "";
+  if (!r.answers.length) a.append(el("p", { class: "empty bad", text: "Com esses dados o sistema fica instável (λ ≥ μ). Ajuste os valores." }));
+  r.answers.forEach(q => { const ok = !edited && (q.verdict === undefined || q.verdict) && near(q.raw, q.gab, q.tol ?? 0.006);
+    a.append(el("div", { class: "ans" }, el("div", { class: "ans-q", text: q.q }), el("div", { class: "ans-v", text: q.val }), el("div", { class: "ans-how", text: q.how }),
+      el("div", { class: "ans-g" }, edited ? el("span", { class: "chip muted", text: "dados editados" }) : el("span", { class: "mark " + (ok ? "yes" : "no"), text: ok ? "✓ gabarito" : "difere" }), el("span", { class: "muted", text: "Gabarito: " + q.gabTxt })))); });
+  setExSim(x, r);
+  const t = document.getElementById("steps"); t.innerHTML = "";
+  t.append(el("thead", {}, el("tr", {}, el("th", { text: "Etapa" }), el("th", { text: "Fórmula" }), el("th", { class: "r", text: "Resultado" }))));
+  const b = el("tbody"); r.steps.forEach(s => b.append(el("tr", {}, el("td", { text: s[0] }), el("td", { class: "fx", text: s[1] }), el("td", { class: "r res", text: s[2] })))); t.append(b);
+  const ch = document.getElementById("chart"), chT = document.getElementById("chT"), chN = document.getElementById("chN");
+  if (!r.chart) { ch.innerHTML = ""; ch.append(el("p", { class: "empty", text: "Sem gráfico para dados instáveis." })); chN.textContent = ""; return; }
+  if (r.chart.type === "pn") { chT.textContent = "Probabilidade de n clientes no sistema"; chN.textContent = r.chart.note || ""; drawPn(ch, r.chart.model, r.chart.hi, r.chart.mark, r.chart.max); }
+  else if (r.chart.type === "cost") { chT.textContent = "Custo total por hora conforme a taxa de atendimento"; chN.textContent = "CT(μ) = CA·μ + CE·λ/(μ − λ)"; drawCost(ch, r.chart); }
+  else { chT.textContent = "Comparação por número de plataformas"; chN.textContent = "Modelo M/M/s"; drawPlat(ch, r.chart.rows, r.minS); }
+}
+
+function setExSim(x, r) {
+  if (!exSim) return; const sm = r.sim; if (!sm) { exSim.opts.innerHTML = ""; return; }
+  const st = state[x.id]; if (st.alt == null || st.alt >= sm.alts.length) st.alt = sm.def || 0;
+  exSim.opts.innerHTML = "";
+  if (sm.alts.length > 1) sm.alts.forEach((a, i) => exSim.opts.append(el("button", { type: "button", class: "opt" + (i === st.alt ? " on" : ""), "aria-pressed": String(i === st.alt),
+    onclick: () => { st.alt = i; setExSim(x, r); } }, a.label)));
+  const a = sm.alts[st.alt];
+  exSim.opts.append(el("span", { class: "sim-cap", text: a.note || "" }));
+  exSim.sim.set(Object.assign({ unit: "h" }, sm.base, { l: a.l, m: a.m, s: a.s || 1 }));
+}
+/* ===== Conceitos ===== */
+function renderConc(root) {
+  root.append(el("section", { class: "head" }, el("div", {}, el("div", { class: "eyebrow", text: "Exercícios 1 a 3" }), el("h2", { text: "Modelagem e conceitos" }),
+    el("p", { class: "lead", text: "Questões teóricas: identificar clientes, servidores e características de cada fila, e analisar casos sem aleatoriedade ou com chegadas em lote." }))));
+  CONCEITOS.forEach(c => root.append(el("section", { class: "panel" }, el("div", { class: "panel-h" }, el("h3", { text: `Exercício ${c.id} · ${c.title}` })), el("div", { class: "prose", html: c.html }))));
+}
+
+function init() { const h = (location.hash || "").slice(1); if (h === "conceitos") cur = "conc"; else if (h.startsWith("ex") && EXS.some(x => x.id === h.slice(2))) cur = h.slice(2); render(); }
+
+init();
+
+</script>
+</body>
+</html>
